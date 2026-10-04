@@ -2,6 +2,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useCourse, useCourseMutations } from "@/hooks/useCourses";
 import { courseSchema, type CourseFormValues } from "@/lib/schemas";
+import type { UpdateCourseInput } from "@/types/courses";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,7 +45,7 @@ export default function CourseEdit() {
   const validateField = (fieldName: keyof CourseFormValues, value: any) => {
     const fieldSchema = courseSchema.shape[fieldName];
     const result = fieldSchema.safeParse(value);
-    
+
     setErrors((prev) => ({
       ...prev,
       [fieldName]: result.success ? undefined : result.error.issues[0].message
@@ -64,28 +65,40 @@ export default function CourseEdit() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!id) return;
+    e.preventDefault();
+    if (!id) return;
 
-  const result = courseSchema.safeParse(formData);
-  if (!result.success) {
-    const fieldErrors: FormErrors = {};
-    result.error.issues.forEach((issue) => {
-      const path = issue.path[0] as keyof CourseFormValues;
-      if (!fieldErrors[path]) {
-        fieldErrors[path] = issue.message;
+    const result = courseSchema.safeParse(formData);
+    if (!result.success) {
+      const fieldErrors: FormErrors = {};
+      result.error.issues.forEach((issue) => {
+        const path = issue.path[0] as keyof CourseFormValues;
+        if (!fieldErrors[path]) {
+          fieldErrors[path] = issue.message;
+        }
+      });
+      setErrors(fieldErrors);
+      setTouched({ name: true, instructor: true, duration: true, price: true, level: true });
+      return;
+    }
+
+    const changes: UpdateCourseInput = {};
+    (Object.keys(result.data) as Array<keyof CourseFormValues>).forEach((key) => {
+      if (result.data[key] !== course[key]) {
+        Object.assign(changes, { [key]: result.data[key] });
       }
     });
-    setErrors(fieldErrors);
-    setTouched({ name: true, instructor: true, duration: true, price: true, level: true });
-    return;
-  }
 
-  const updated = await updateCourse(id, result.data);
-  if (updated) {
-    navigate(`/courses/${id}`);
-  }
-};
+    if (Object.keys(changes).length === 0) {
+      navigate(`/courses/${id}`);
+      return;
+    }
+
+    const updated = await updateCourse(id, changes);
+    if (updated) {
+      navigate(`/courses/${id}`);
+    }
+  };
 
   return (
     <div className="max-w-xl mx-auto p-6">
@@ -96,13 +109,13 @@ export default function CourseEdit() {
             <CardDescription>Update the identity values for your backend registry.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            
+
             <div className="space-y-2">
               <Label htmlFor="name">Course Title Name</Label>
-              <Input 
-                id="name" 
-                value={formData.name} 
-                onChange={(e) => handleChange("name", e.target.value)} 
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleChange("name", e.target.value)}
                 onBlur={() => handleBlur("name")}
                 className={touched.name && errors.name ? "border-destructive focus-visible:ring-destructive" : ""}
               />
@@ -113,10 +126,10 @@ export default function CourseEdit() {
 
             <div className="space-y-2">
               <Label htmlFor="instructor">Instructor</Label>
-              <Input 
-                id="instructor" 
-                value={formData.instructor} 
-                onChange={(e) => handleChange("instructor", e.target.value)} 
+              <Input
+                id="instructor"
+                value={formData.instructor}
+                onChange={(e) => handleChange("instructor", e.target.value)}
                 onBlur={() => handleBlur("instructor")}
                 className={touched.instructor && errors.instructor ? "border-destructive focus-visible:ring-destructive" : ""}
               />
@@ -128,10 +141,10 @@ export default function CourseEdit() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="duration">Duration</Label>
-                <Input 
-                  id="duration" 
-                  value={formData.duration} 
-                  onChange={(e) => handleChange("duration", e.target.value)} 
+                <Input
+                  id="duration"
+                  value={formData.duration}
+                  onChange={(e) => handleChange("duration", e.target.value)}
                   onBlur={() => handleBlur("duration")}
                   className={touched.duration && errors.duration ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
@@ -141,13 +154,13 @@ export default function CourseEdit() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="price">Price (\$)</Label>
-                <Input 
-                  id="price" 
-                  type="number" 
-                  step="0.01" 
-                  value={formData.price} 
-                  onChange={(e) => handleChange("price", e.target.value === "" ? "" : Number(e.target.value))} 
+                <Label htmlFor="price">Price ($)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) => handleChange("price", e.target.value === "" ? "" : Number(e.target.value))}
                   onBlur={() => handleBlur("price")}
                   className={touched.price && errors.price ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
@@ -159,10 +172,10 @@ export default function CourseEdit() {
 
             <div className="space-y-2">
               <Label htmlFor="level">Difficulty Level</Label>
-              <select 
-                id="level" 
-                value={formData.level} 
-                onChange={(e) => handleChange("level", e.target.value)} 
+              <select
+                id="level"
+                value={formData.level}
+                onChange={(e) => handleChange("level", e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <option value="Beginner">Beginner</option>

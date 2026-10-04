@@ -5,7 +5,7 @@ import type {
   Course,
   CreateCourseInput,
   UpdateCourseInput,
- } from '@/types/courses';
+} from '@/types/courses';
 
 export function useCourses() {
   const [courses, setCourses] = useState<Course[]>(
@@ -134,7 +134,7 @@ export function useCourseMutations() {
       setSubmitting(true);
       setError(null);
       try {
-        const { data } = await api.put<Course>(`/courses/${id}`, input);
+        const { data } = await api.patch<Course>(`/courses/${id}`, input);
         invalidate(id);
         return data;
       } catch (err) {

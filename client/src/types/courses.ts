@@ -51,4 +51,4 @@ export interface CreateCourseInput {
   modules?: CourseModule[];
 }
 
-export type UpdateCourseInput = CreateCourseInput;
+export type UpdateCourseInput = Partial<CreateCourseInput>;

@@ -38,12 +38,23 @@ const courseSchema = Joi.object({
   modules: modulesSchema,
 });
 
+const coursePatchSchema = courseSchema
+  .fork(['name', 'instructor', 'duration', 'price', 'level'], (field) =>
+    field.optional()
+  )
+  .min(1)
+  .messages({ 'object.min': 'Provide at least one field to update.' });
+
 function ValidateCourse(body) {
   return courseSchema.validate(body);
+}
+
+function ValidateCoursePatch(body) {
+  return coursePatchSchema.validate(body);
 }
 
 function ValidateModules(modules) {
   return modulesSchema.required().validate(modules);
 }
 
-module.exports = { ValidateCourse, ValidateModules };
+module.exports = { ValidateCourse, ValidateCoursePatch, ValidateModules };

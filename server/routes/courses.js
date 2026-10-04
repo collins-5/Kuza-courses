@@ -2,8 +2,21 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Course = require('../models/course');
-const { ValidateCourse, ValidateModules } = require('../lib/validate-course');
+const {
+  ValidateCourse,
+  ValidateCoursePatch,
+  ValidateModules,
+} = require('../lib/validate-course');
 const { protect } = require('../middleware/auth');
+
+const PATCHABLE = [
+  'name',
+  'instructor',
+  'duration',
+  'price',
+  'level',
+  'modules',
+];
 
 function checkId(req, res, next) {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -64,8 +77,8 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
-router.put('/:id', protect, checkId, async (req, res) => {
-  const { error } = ValidateCourse(req.body);
+router.patch('/:id', protect, checkId, async (req, res) => {
+  const { error, value } = ValidateCoursePatch(req.body);
   if (error) return res.status(400).send(error.details[0].message);
 
   try {
@@ -75,15 +88,12 @@ router.put('/:id', protect, checkId, async (req, res) => {
       return res.status(403).send('Only the course owner can edit this course.');
     }
 
-    course.set({
-      name: req.body.name,
-      instructor: req.body.instructor,
-      duration: req.body.duration,
-      price: req.body.price,
-      level: req.body.level,
-    });
-    if (req.body.modules !== undefined) course.modules = req.body.modules;
+    const updates = {};
+    for (const key of PATCHABLE) {
+      if (value[key] !== undefined) updates[key] = value[key];
+    }
 
+    course.set(updates);
     await course.save();
     const populated = await course.populate('createdBy', 'name email');
     res.send(populated);
@@ -92,7 +102,7 @@ router.put('/:id', protect, checkId, async (req, res) => {
   }
 });
 
-router.put('/:id/modules', protect, checkId, async (req, res) => {
+router.patch('/:id/modules', protect, checkId, async (req, res) => {
   const { error, value } = ValidateModules(req.body.modules);
   if (error) return res.status(400).send(error.details[0].message);
 
