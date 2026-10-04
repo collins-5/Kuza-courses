@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useCourse, useCourseMutations } from '@/hooks/useCourses';
 import { useAuth } from '@/hooks/useAuth';
 import { levelStyles } from '@/components/core/course-card';
-import { mockCurriculum, type NoteBlock } from '@/data/mockCurriculum';
+import type { Lecture, NoteBlock } from '@/types/courses';
 
 function NoteView({ block }: { block: NoteBlock }) {
   switch (block.type) {
@@ -79,11 +79,15 @@ export default function CourseDetail() {
     error: mutationError,
   } = useCourseMutations();
 
+  const modules = course?.modules ?? [];
   const lectures = useMemo(
-    () => mockCurriculum.flatMap((m) => m.lectures),
-    [],
+    () =>
+      (course?.modules ?? []).flatMap((m) =>
+        m.lectures.map((l) => ({ ...l, _id: l._id ?? `${m.title}-${l.title}` })),
+      ),
+    [course],
   );
-  const [activeId, setActiveId] = useState(lectures[0].id);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [done, setDone] = useState<Set<string>>(new Set());
 
   if (loading) {
@@ -123,19 +127,24 @@ export default function CourseDetail() {
     if (ok) navigate('/', { replace: true });
   };
 
-  const index = lectures.findIndex((l) => l.id === activeId);
-  const active = lectures[index];
+  const hasLectures = lectures.length > 0;
+  const index = Math.max(
+    0,
+    lectures.findIndex((l) => l._id === activeId),
+  );
+  const active: (Lecture & { _id: string }) | undefined = lectures[index];
   const prev = lectures[index - 1];
   const next = lectures[index + 1];
-  const isDone = done.has(active.id);
-  const pct = Math.round((done.size / lectures.length) * 100);
+  const isDone = active ? done.has(active._id) : false;
+  const pct = hasLectures ? Math.round((done.size / lectures.length) * 100) : 0;
   const free = course.price === 0;
 
   const toggleDone = () => {
+    if (!active) return;
     setDone((prevSet) => {
       const copy = new Set(prevSet);
-      if (copy.has(active.id)) copy.delete(active.id);
-      else copy.add(active.id);
+      if (copy.has(active._id)) copy.delete(active._id);
+      else copy.add(active._id);
       return copy;
     });
   };
@@ -195,160 +204,182 @@ export default function CourseDetail() {
       </section>
 
       <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 lg:grid-cols-[1fr_340px]">
-        <motion.main
-          key={active.id}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
-          className="min-w-0"
-        >
-          <div className="relative grid aspect-video place-items-center overflow-hidden rounded-xl bg-ed">
-            {active.videoUrl ? (
-              <video
-                src={active.videoUrl}
-                controls
-                className="size-full object-cover"
-              />
-            ) : (
-              <>
-                <span className="absolute -left-10 -top-16 size-56 rounded-full bg-primary/30" />
-                <span className="absolute -bottom-16 -right-6 size-44 rounded-full bg-pink/20" />
-                <div className="relative text-center text-white">
-                  <span className="mx-auto grid size-16 place-items-center rounded-full bg-sun text-ed shadow-lg transition-transform hover:scale-110">
-                    <Play className="size-7 fill-current" />
-                  </span>
-                  <p className="mt-4 text-sm text-white/60">
-                    Lecture video appears here
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
+        {hasLectures && active ? (
+          <motion.main
+            key={active._id}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="min-w-0"
+          >
+            <div className="relative grid aspect-video place-items-center overflow-hidden rounded-xl bg-ed">
+              {active.videoUrl ? (
+                <video
+                  src={active.videoUrl}
+                  controls
+                  className="size-full object-cover"
+                />
+              ) : (
+                <>
+                  <span className="absolute -left-10 -top-16 size-56 rounded-full bg-primary/30" />
+                  <span className="absolute -bottom-16 -right-6 size-44 rounded-full bg-pink/20" />
+                  <div className="relative text-center text-white">
+                    <span className="mx-auto grid size-16 place-items-center rounded-full bg-sun text-ed shadow-lg transition-transform hover:scale-110">
+                      <Play className="size-7 fill-current" />
+                    </span>
+                    <p className="mt-4 text-sm text-white/60">
+                      Lecture video appears here
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
 
-          <div className="mt-6 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-primary">
-                Lecture {index + 1} of {lectures.length}
-              </p>
-              <h2 className="mt-1 text-3xl font-extrabold">{active.title}</h2>
-              <p className="mt-2 max-w-2xl text-muted-foreground">
-                {active.summary}
+            <div className="mt-6 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-primary">
+                  Lecture {index + 1} of {lectures.length}
+                </p>
+                <h2 className="mt-1 text-3xl font-extrabold">{active.title}</h2>
+                {active.summary && (
+                  <p className="mt-2 max-w-2xl text-muted-foreground">
+                    {active.summary}
+                  </p>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant={isDone ? 'secondary' : 'default'}
+                className="rounded-full"
+                onClick={toggleDone}
+              >
+                <CheckCircle2 className="mr-2 size-4" />
+                {isDone ? 'Completed' : 'Mark complete'}
+              </Button>
+            </div>
+
+            {active.notes.length > 0 && (
+              <section className="mt-10">
+                <h2 className="mb-4 border-b border-border pb-3 text-lg font-bold">
+                  Lecture notes
+                </h2>
+                {active.notes.map((block, i) => (
+                  <NoteView key={i} block={block} />
+                ))}
+              </section>
+            )}
+
+            {active.takeaways.length > 0 && (
+              <section className="mt-10 rounded-xl border border-border bg-accent/50 p-6">
+                <h2 className="text-lg font-bold">Key takeaways</h2>
+                <ul className="mt-3 space-y-2">
+                  {active.takeaways.map((t) => (
+                    <li key={t} className="flex gap-3">
+                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-mint" />
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <div className="mt-8 flex items-center justify-between gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                disabled={!prev}
+                onClick={() => prev && goTo(prev._id)}
+              >
+                <ChevronLeft className="mr-1 size-4" />
+                Previous
+              </Button>
+              <Button
+                type="button"
+                className="rounded-full"
+                disabled={!next}
+                onClick={() => next && goTo(next._id)}
+              >
+                Next lecture
+                <ChevronRight className="ml-1 size-4" />
+              </Button>
+            </div>
+          </motion.main>
+        ) : (
+          <main className="min-w-0">
+            <div className="rounded-xl border border-dashed border-border bg-accent/40 px-6 py-16 text-center">
+              <h2 className="text-xl font-bold">No lectures yet</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                The instructor hasn&apos;t published any lectures for this course.
               </p>
             </div>
-            <Button
-              type="button"
-              variant={isDone ? 'secondary' : 'default'}
-              className="rounded-full"
-              onClick={toggleDone}
-            >
-              <CheckCircle2 className="mr-2 size-4" />
-              {isDone ? 'Completed' : 'Mark complete'}
-            </Button>
-          </div>
-
-          <section className="mt-10">
-            <h2 className="mb-4 border-b border-border pb-3 text-lg font-bold">
-              Lecture notes
-            </h2>
-            {active.notes.map((block, i) => (
-              <NoteView key={i} block={block} />
-            ))}
-          </section>
-
-          <section className="mt-10 rounded-xl border border-border bg-accent/50 p-6">
-            <h2 className="text-lg font-bold">Key takeaways</h2>
-            <ul className="mt-3 space-y-2">
-              {active.takeaways.map((t) => (
-                <li key={t} className="flex gap-3">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-mint" />
-                  <span>{t}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <div className="mt-8 flex items-center justify-between gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-full"
-              disabled={!prev}
-              onClick={() => prev && goTo(prev.id)}
-            >
-              <ChevronLeft className="mr-1 size-4" />
-              Previous
-            </Button>
-            <Button
-              type="button"
-              className="rounded-full"
-              disabled={!next}
-              onClick={() => next && goTo(next.id)}
-            >
-              Next lecture
-              <ChevronRight className="ml-1 size-4" />
-            </Button>
-          </div>
-        </motion.main>
+          </main>
+        )}
 
         <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold">Your progress</span>
-              <span className="font-mono text-muted-foreground">
-                {done.size}/{lectures.length}
-              </span>
-            </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-mint transition-all duration-500"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
+          {hasLectures && (
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold">Your progress</span>
+                <span className="font-mono text-muted-foreground">
+                  {done.size}/{lectures.length}
+                </span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-mint transition-all duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
 
-            <div className="mt-5 space-y-5">
-              {mockCurriculum.map((m) => (
-                <div key={m.id}>
-                  <h3 className="mb-2 text-sm font-bold">{m.title}</h3>
-                  <ul className="space-y-1">
-                    {m.lectures.map((l) => {
-                      const n = lectures.findIndex((x) => x.id === l.id) + 1;
-                      const isActive = l.id === active.id;
-                      return (
-                        <li key={l.id}>
-                          <button
-                            type="button"
-                            onClick={() => goTo(l.id)}
-                            aria-current={isActive ? 'true' : undefined}
-                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                              isActive
-                                ? 'bg-primary text-primary-foreground'
-                                : 'hover:bg-accent'
-                            }`}
-                          >
-                            {done.has(l.id) ? (
-                              <CheckCircle2
-                                className={`size-4 shrink-0 ${isActive ? '' : 'text-mint'}`}
-                              />
-                            ) : (
-                              <Circle className="size-4 shrink-0 opacity-50" />
-                            )}
-                            <span className="flex-1 leading-snug">
-                              {n}. {l.title}
-                            </span>
-                            <span
-                              className={`font-mono text-xs ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}
+              <div className="mt-5 space-y-5">
+                {modules.map((m, mi) => (
+                  <div key={m._id ?? mi}>
+                    <h3 className="mb-2 text-sm font-bold">{m.title}</h3>
+                    <ul className="space-y-1">
+                      {m.lectures.map((l) => {
+                        const key = l._id ?? `${m.title}-${l.title}`;
+                        const n = lectures.findIndex((x) => x._id === key) + 1;
+                        const isActive = active != null && key === active._id;
+                        return (
+                          <li key={key}>
+                            <button
+                              type="button"
+                              onClick={() => goTo(key)}
+                              aria-current={isActive ? 'true' : undefined}
+                              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                                isActive
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'hover:bg-accent'
+                              }`}
                             >
-                              {l.duration}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
+                              {done.has(key) ? (
+                                <CheckCircle2
+                                  className={`size-4 shrink-0 ${isActive ? '' : 'text-mint'}`}
+                                />
+                              ) : (
+                                <Circle className="size-4 shrink-0 opacity-50" />
+                              )}
+                              <span className="flex-1 leading-snug">
+                                {n}. {l.title}
+                              </span>
+                              {l.duration && (
+                                <span
+                                  className={`font-mono text-xs ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}
+                                >
+                                  {l.duration}
+                                </span>
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {course.createdBy?.name && (
             <p className="px-1 text-sm text-muted-foreground">
