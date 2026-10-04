@@ -1,0 +1,59 @@
+@baseUrl = http://localhost:5000
+@token = PASTE_TOKEN_HERE
+@courseId = PASTE_COURSE_ID_HERE
+
+###
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Tech Collins",
+  "email": "tech@example.com",
+  "password": "secret123"
+}
+
+###
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "tech@example.com",
+  "password": "secret123"
+}
+
+###
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+
+###
+GET {{baseUrl}}/api/courses
+
+###
+POST {{baseUrl}}/api/courses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "React Native for Beginners",
+  "instructor": "John Doe",
+  "duration": "12 hours",
+  "price": 49.99,
+  "level": "Beginner"
+}
+
+###
+PUT {{baseUrl}}/api/courses/{{courseId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "React Native — Updated",
+  "instructor": "John Doe",
+  "duration": "15 hours",
+  "price": 59.99,
+  "level": "Intermediate"
+}
+
+###
+DELETE {{baseUrl}}/api/courses/{{courseId}}
+Authorization: Bearer {{token}}
